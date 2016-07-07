@@ -54,7 +54,7 @@ void pixeldrawer::write(int x, int y, uint32_t color)
 {
   if (x < 0 || x > wwidth || y < 0 || y > wheight)
     die("Trying to write to screen out of its bounds");
-  data.get()[y * wwidth + x] = color; // XXX
+  data.get()[y * wwidth + x] = (color << 8) + 0xFF; // XXX
 }
 
 void pixeldrawer::clear()
@@ -64,10 +64,9 @@ void pixeldrawer::clear()
       write(x, y, 0);
 }
 
-void pixeldrawer::mainloop(void (*update_cb)(uint32_t, uint32_t),
+void pixeldrawer::mainloop(void (*update_cb)(double, uint32_t),
     void (*draw_cb)(pixeldrawer*)) {
-  bool running = true;
-  SDL_Event event;
+  extern bool running;
   uint32_t simtime = 0;
 
   while (running) {
@@ -76,12 +75,7 @@ void pixeldrawer::mainloop(void (*update_cb)(uint32_t, uint32_t),
     while (simtime < realtime) {
       simtime += 16;
 
-      while (SDL_PollEvent(&event) != 0) { // Handle events queue
-        if (event.type == SDL_QUIT)
-          running = false;
-      }
-
-      update_cb(16, simtime);
+      update_cb(16. / 1000., simtime);
     }
     clear();
 

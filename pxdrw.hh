@@ -20,7 +20,7 @@ public:
   void draw();
   void write(int x, int y, uint32_t color);
   void clear();
-  void mainloop(void (*update_cb)(uint32_t, uint32_t),
+  void mainloop(void (*update_cb)(double, uint32_t),
       void (*draw_cb)(pixeldrawer*));
 };
 
