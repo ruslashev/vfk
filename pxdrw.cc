@@ -53,7 +53,7 @@ void pixeldrawer::draw()
 void pixeldrawer::write(int x, int y, uint32_t color)
 {
   if (x < 0 || x > wwidth || y < 0 || y > wheight)
-    die("Trying to write to screen out of its bounds");
+    return;
   data.get()[y * wwidth + x] = (color << 8) + 0xFF; // XXX
 }
 
