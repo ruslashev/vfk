@@ -1,155 +1,212 @@
-#include <fstream>
-#include "pxdrw.hh"
+#include "screen.hh"
+#include "utils.hh"
+#include <string>
+#include <vector>
 
-void drawvline(pixeldrawer *pd, int x, int sz, uint32_t color) {
-  for (int y = 0; y < sz; y++)
-    pd->write(x, pd->wheight / 2 - sz / 2 + y, color);
-}
-
-void drawsq(pixeldrawer *pd, int x, int y, int sz, uint32_t color) {
-  for (int dy = 0; dy < sz; dy++)
-    for (int dx = 0; dx < sz; dx++)
-      pd->write(x + dx, y + dy, color);
-}
-
-int tilecolor(int t) {
-  switch (t) {
-    case -1: return 0xFFFF00;
-    case  1: return 0xFFFFFF;
-    case  2: return 0xFF0000;
-    case  3: return 0x00FF00;
-    case  4: return 0x0000FF;
-    case  5: return 0xFF00FF;
-    case  6: return 0x444444;
+class ogl_buffer {
+protected:
+  GLuint _id;
+  GLenum _type;
+public:
+  ogl_buffer(GLenum _type = GL_ARRAY_BUFFER) : _type(_type) {
+    glGenBuffers(1, &_id);
   }
-}
-
-const int mapsz = 10;
-const int map[mapsz][mapsz] = {
-  {1,1,1,2,3,4,2,1,1,1},
-  {1,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,5},
-  {1,0,0,0,0,0,0,0,0,5},
-  {1,0,0,0,0,0,0,0,0,6},
-  {1,0,0,0,0,0,0,0,0,5},
-  {1,0,0,0,0,0,0,0,0,5},
-  {1,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,1},
-  {1,1,5,2,3,4,2,1,1,1},
+  ~ogl_buffer() {
+    glDeleteBuffers(1, &_id);
+  }
+  void bind() const {
+    glBindBuffer(_type, _id);
+  }
+  void unbind() const {
+    glBindBuffer(_type, 0);
+  }
 };
-double playerx = 30, playery = 40, playerang = 0;
-const double tilesize = 10;
-const double plyspeed = 30, plyturnspeed = 100;
-double fov = 60;
-bool running = true;
 
-int sign(double x) {
-  if (abs(x) < 1e-5)
-    return 0;
-  if (x < 0)
-    return -1;
-  else
-    return 1;
+class array_buffer : public ogl_buffer
+{
+public:
+  void upload(std::vector<GLfloat> &data) {
+    bind();
+    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(data[0]), data.data(),
+        GL_STATIC_DRAW);
+    unbind();
+  }
+};
+
+static const char*
+get_ogl_shader_err(void (*ogl_errmsg_func)(GLuint, GLsizei, GLsizei*, GLchar*),
+    GLuint id) {
+  char msg[1024];
+  ogl_errmsg_func(id, 1024, NULL, msg);
+  std::string msgstr(msg);
+  msgstr.pop_back(); // strip trailing newline
+  // indent every line
+  int indent = 3;
+  msgstr.insert(msgstr.begin(), indent, ' ');
+  for (size_t i = 0; i < msgstr.size(); i++) {
+    if (msgstr[i] != '\n')
+      continue;
+    msgstr.insert(i, indent, ' ');
+  }
+  return msgstr.c_str();
 }
 
-double to_rads(double degs) {
-  return (degs * (M_PI / 180.0));
+struct shader {
+  GLuint type;
+  GLuint id;
+  shader(std::string source, GLuint type) : type(type) {
+    id = glCreateShader(type);
+    const char *csrc = source.c_str();
+    glShaderSource(id, 1, &csrc, NULL);
+    glCompileShader(id);
+    GLint compilesucc;
+    glGetShaderiv(id, GL_COMPILE_STATUS, &compilesucc);
+    if (compilesucc != GL_TRUE) {
+      const char *msg = get_ogl_shader_err(glGetShaderInfoLog, id);
+      die("failed to compile %s shader:\n%s"
+         , type == GL_VERTEX_SHADER ? "Vertex" : "Fragment", msg);
+    }
+  }
+  ~shader() {
+    glDeleteShader(id);
+  }
+};
+
+class shaderprogram {
+  GLint _model_mat_unif;
+  GLint _proj_mat_unif;
+  GLint _view_mat_unif;
+
+  void link(const shader &vert, const shader &frag);
+public:
+  GLuint id;
+  shaderprogram(const shader &vert, const shader &frag) {
+    assert(vert.type == GL_VERTEX_SHADER && frag.type == GL_FRAGMENT_SHADER
+          , "order of shaders in shaderprogram's constructor is reversed");
+    id = glCreateProgram();
+    glAttachShader(id, vert.id);
+    glAttachShader(id, frag.id);
+    glLinkProgram(id);
+    GLint linksucc;
+    glGetProgramiv(id, GL_LINK_STATUS, &linksucc);
+    if (linksucc != GL_TRUE) {
+      const char *msg = get_ogl_shader_err(glGetProgramInfoLog, id);
+      glDetachShader(id, vert.id);
+      glDetachShader(id, frag.id);
+      die("failed to link shaders:\n%s", msg);
+    }
+    use_this_prog();
+  }
+  ~shaderprogram() {
+    glDeleteProgram(id);
+  }
+  void vertexattribptr(const array_buffer &buffer, const char *name,
+      GLint size, GLenum type, GLboolean normalized, GLsizei stride,
+      const GLvoid *ptr) {
+    buffer.bind();
+    GLint attr = glGetAttribLocation(id, name);
+    glEnableVertexAttribArray(attr);
+    glVertexAttribPointer(attr, size, type, normalized, stride, ptr);
+    buffer.unbind();
+  }
+  GLint bind_attrib(const char *name) {
+    GLint attr = glGetAttribLocation(id, name);
+    assert(attr != -1, "couldn't bind attribute %s", name);
+    return attr;
+  }
+  void use_this_prog() {
+    glUseProgram(id);
+  }
+  void dont_use_this_prog() {
+    glUseProgram(0);
+  }
+  // void UpdateMatrices(const glm::mat4 &model,
+  //     const glm::mat4 &view, const glm::mat4 &proj);
+};
+
+struct vertexarray {
+  GLuint id;
+  vertexarray() {
+    glGenVertexArrays(1, &id);
+    glBindVertexArray(id);
+  }
+  ~vertexarray() {
+    glDeleteVertexArrays(1, &id);
+  }
+};
+
+shaderprogram *sp;
+GLint vattr;
+
+void load() {
+  vertexarray vao;
+
+  // std::vector<float> vertices = {
+  //    0.0f,  0.5f,
+  //    0.5f, -0.5f,
+  //   -0.5f, -0.5f
+  // };
+  // array_buffer screenverts;
+  // screenverts.upload(vertices);
+  // screenverts.bind();
+
+  const char *vsrc = _glsl(
+    attribute vec2 position;
+    void main() {
+      gl_Position = vec4(position, 0.0, 1.0);
+    }
+  );
+  const char *fsrc = _glsl(
+    void main() {
+      gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+    }
+  );
+
+  shader vs(vsrc, GL_VERTEX_SHADER), fs(fsrc, GL_FRAGMENT_SHADER);
+  sp = new shaderprogram(vs, fs);
+  sp->use_this_prog();
+  vattr = sp->bind_attrib("position");
+  // sp->bind_vertexattrib(screenverts, "position", 2, GL_FLOAT, GL_FALSE, 0, 0);
 }
 
-void update(double dt, uint32_t t) {
+void update(double dt, uint32_t t, screen *s) {
   SDL_Event event;
   while (SDL_PollEvent(&event) != 0) {
     if (event.type == SDL_QUIT)
-      running = false;
+      s->running = false;
     else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
       uint8_t *keystates = (uint8_t*)SDL_GetKeyboardState(nullptr);
       int fw = keystates[SDL_SCANCODE_W] - keystates[SDL_SCANCODE_S];
       int side = keystates[SDL_SCANCODE_D] - keystates[SDL_SCANCODE_A];
-      playerx += fw * cos(to_rads(playerang)) * plyspeed * dt;
-      playery += fw * sin(to_rads(playerang)) * plyspeed * dt;
-      playerang += side * plyturnspeed * dt;
     }
   }
 }
 
-int getmap(int x, int y) {
-  if (x < 0 || y < 0 || x > mapsz - 1 || y > mapsz - 1)
-    return -1;
-  else
-    return map[y][x];
+void draw() {
+  glClearColor(0, 0, 0, 1);
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  float vertices[] = {
+     0.0f,  0.5f,
+     0.5f, -0.5f,
+    -0.5f, -0.5f
+  };
+  sp->use_this_prog();
+  glEnableVertexAttribArray(vattr);
+  glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, vertices);
+  glDrawArrays(GL_TRIANGLES, 0, 3);
+  glDisableVertexAttribArray(vattr);
+  sp->dont_use_this_prog();
 }
 
-void draw(pixeldrawer *pd) {
-  const int offset = 5, scale = 5;
-  for (int y = 0; y < mapsz; y++)
-    for (int x = 0; x < mapsz; x++)
-      if (map[y][x])
-        drawsq(pd, offset + x * scale, offset + y * scale, scale,
-            tilecolor(map[y][x]));
-  int plx = offset + (playerx / tilesize) * scale,
-      ply = offset + (playery / tilesize) * scale;
-  drawsq(pd, plx - 1, ply - 1, 3, 0xAAAAAA);
-  for (int i = 0; i < 100; i++) {
-    pd->write(
-        round(plx + i * cos(to_rads(playerang - fov / 1.0))),
-        round(ply + i * sin(to_rads(playerang - fov / 1.0))),
-        0x00AA00);
-    pd->write(
-        round(plx + i * cos(to_rads(playerang + fov / 1.0))),
-        round(ply + i * sin(to_rads(playerang + fov / 1.0))),
-        0x00AA00);
-  }
-  for (int i = 0; i < 5; i++)
-    pd->write(round(plx + i * cos(to_rads(playerang))),
-        round(ply + i * sin(to_rads(playerang))),
-        0xFF0000);
-
-  for (int x = 0; x < pd->wwidth; x++) {
-    const double screenxnorm = ((double)x / pd->wwidth) * 2.0 - 1.0;
-    double thisrayang = playerang + screenxnorm * fov;
-    double dirx = cos(to_rads(thisrayang)), diry = sin(to_rads(thisrayang));
-    int mapx = playerx / tilesize, mapy = playery / tilesize;
-    double ddx = abs(1 / dirx), ddy = abs(1 / diry);
-    int stepx = sign(dirx), stepy = sign(diry);
-    double raydifx = mapx - playerx / tilesize, raydify = mapy - playery / tilesize;
-    double sidedx = (sign(dirx) * raydifx + sign(dirx) * 0.5 + 0.5) * ddx,
-           sidedy = (sign(diry) * raydify + sign(diry) * 0.5 + 0.5) * ddy;
-    bool maskx, masky;
-
-    int mapval;
-    for (int i = 0; i < 1e3; i++) {
-      mapval = getmap(mapx, mapy);
-      if (mapval != 0)
-        break;
-      if (sidedx < sidedy) {
-        sidedx += ddx;
-        mapx += stepx;
-        maskx = true;
-        masky = false;
-      } else {
-        sidedy += ddy;
-        mapy += stepy;
-        maskx = false;
-        masky = true;
-      }
-    }
-    double dist;
-    if (maskx)
-      dist = abs((mapx - playerx / tilesize + (1.0 - stepx) / 2.0) / dirx);
-    else
-      dist = abs((mapy - playery / tilesize + (1.0 - stepy) / 2.0) / diry);
-    dist = 600 / dist;
-    if (dist > 600)
-      dist = 600;
-    uint32_t color = tilecolor(getmap(mapx, mapy)) * (maskx ? 0.9 : 1.0);
-    drawvline(pd, x, dist, color);
-  }
+void cleanup() {
+  delete sp;
 }
 
 int main() {
-  pixeldrawer screen(800, 600);
+  screen s(800, 600);
 
-  screen.mainloop(update, draw);
+  s.mainloop(load, update, draw, cleanup);
 
   return 0;
 }

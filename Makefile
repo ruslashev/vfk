@@ -1,4 +1,4 @@
 default:
-	g++ main.cc pxdrw.cc -o vfk -std=c++0x -lSDL2
+	g++ main.cc screen.cc -o vfk -g -std=c++0x -lSDL2 -lGLEW -lGL
 	./vfk
 
