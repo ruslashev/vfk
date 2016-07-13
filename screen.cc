@@ -28,11 +28,11 @@ screen::~screen() {
   SDL_Quit();
 }
 
-void screen::mainloop(void (*load_cb)(void)
+void screen::mainloop(void (*load_cb)(screen*)
     , void (*update_cb)(double, uint32_t, screen*)
     , void (*draw_cb)(void)
     , void (*cleanup_cb)(void)) {
-  load_cb();
+  load_cb(this);
 
   uint32_t simtime = 0;
 

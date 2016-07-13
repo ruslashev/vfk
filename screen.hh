@@ -12,7 +12,7 @@ public:
   bool running;
   screen(int window_width, int window_height);
   ~screen();
-  void mainloop(void (*load_cb)(void)
+  void mainloop(void (*load_cb)(screen*)
       , void (*update_cb)(double, uint32_t, screen*)
       , void (*draw_cb)(void)
       , void (*cleanup_cb)(void));
