@@ -137,18 +137,18 @@ struct vertexarray {
 
 shaderprogram *sp;
 GLint vattr;
+array_buffer *screenverts;
 
 void load() {
   vertexarray vao;
 
-  // std::vector<float> vertices = {
-  //    0.0f,  0.5f,
-  //    0.5f, -0.5f,
-  //   -0.5f, -0.5f
-  // };
-  // array_buffer screenverts;
-  // screenverts.upload(vertices);
-  // screenverts.bind();
+  std::vector<float> vertices = {
+     0.0f,  0.5f,
+     0.5f, -0.5f,
+    -0.5f, -0.5f
+  };
+  screenverts = new array_buffer;
+  screenverts->upload(vertices);
 
   const char *vsrc = _glsl(
     attribute vec2 position;
@@ -186,14 +186,10 @@ void draw() {
   glClearColor(0, 0, 0, 1);
   glClear(GL_COLOR_BUFFER_BIT);
 
-  float vertices[] = {
-     0.0f,  0.5f,
-     0.5f, -0.5f,
-    -0.5f, -0.5f
-  };
   sp->use_this_prog();
+  screenverts->bind();
   glEnableVertexAttribArray(vattr);
-  glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, vertices);
+  glVertexAttribPointer(vattr, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glDrawArrays(GL_TRIANGLES, 0, 3);
   glDisableVertexAttribArray(vattr);
   sp->dont_use_this_prog();
@@ -201,6 +197,7 @@ void draw() {
 
 void cleanup() {
   delete sp;
+  delete screenverts;
 }
 
 int main() {
