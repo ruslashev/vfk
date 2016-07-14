@@ -35,11 +35,13 @@ void screen::mainloop(void (*load_cb)(screen*)
   load_cb(this);
 
   uint32_t simtime = 0;
+  uint64_t totalframes = 0;
+  int updatecount = 0;
 
   while (running) {
-    uint32_t realtime = SDL_GetTicks();
+    uint32_t real_time = SDL_GetTicks();
 
-    while (simtime < realtime) {
+    while (simtime < real_time) {
       simtime += 16;
 
       update_cb(16. / 1000., simtime, this);
@@ -48,6 +50,20 @@ void screen::mainloop(void (*load_cb)(screen*)
     draw_cb();
 
     SDL_GL_SwapWindow(_window);
+
+    totalframes++;
+    updatecount++;
+    if (updatecount == 20) {
+      updatecount = 0;
+      uint32_t ticks_per_frame = SDL_GetTicks() - real_time;
+      double fps = 1. / ((double)ticks_per_frame / 1000.)
+        , fpsavg = (double)totalframes / ((double)SDL_GetTicks() / 1000.0);
+      char title[256];
+      snprintf(title, 256, "vfk | %d ms/frame - %.2f frames/s - %.2f frames/s "
+          "avg", ticks_per_frame, fps, fpsavg);
+      SDL_SetWindowTitle(_window, title);
+    }
   }
 
+  cleanup_cb();
 }

@@ -143,7 +143,7 @@ GLint resolution_unif, time_unif;
 void load(screen *s) {
   vertexarray vao;
 
-  const float off = 0.075f;
+  const float off = 0;
   std::vector<float> vertices = {
     -1.0f + off,  1.0f - off,
     -1.0f + off, -1.0f + off,
@@ -319,7 +319,7 @@ void cleanup() {
 }
 
 int main() {
-  screen s(320, 240);
+  screen s(800, 600);
 
   s.mainloop(load, update, draw, cleanup);
 
