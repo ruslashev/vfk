@@ -2,7 +2,7 @@
 
 #include <fstream>
 
-#define assert(X, ...) \
+#define assertf(X, ...) \
   do { \
     if (!(X)) { \
       printf("assert failed in %s:%d: ", __FILE__, __LINE__); \

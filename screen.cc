@@ -15,10 +15,10 @@ screen::screen(int window_width, int window_height)
   _gl_context = SDL_GL_CreateContext(_window);
 
   GLenum err = glewInit();
-  assert(err == GLEW_OK, "failed to initialze glew: %s",
+  assertf(err == GLEW_OK, "failed to initialze glew: %s",
       glewGetErrorString(err));
 
-  assert(GLEW_VERSION_2_0, "your graphic card does not support OpenGL 2.0");
+  assertf(GLEW_VERSION_2_0, "your graphic card does not support OpenGL 2.0");
 
   running = true;
 }
