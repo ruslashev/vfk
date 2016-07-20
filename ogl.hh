@@ -50,8 +50,8 @@ get_ogl_shader_err(void (*ogl_errmsg_func)(GLuint, GLsizei, GLsizei*, GLchar*),
   msg = new char [loglen + 1];
   ogl_errmsg_func(id, loglen, nullptr, msg);
   std::string msgstr(msg);
-  /*
   msgstr.pop_back(); // strip trailing newline
+  /*
   // indent every line
   int indent = 3;
   msgstr.insert(msgstr.begin(), indent, ' ');
@@ -77,7 +77,7 @@ struct shader {
     glGetShaderiv(id, GL_COMPILE_STATUS, &compilesucc);
     if (compilesucc != GL_TRUE) {
       const char *msg = get_ogl_shader_err(glGetShaderInfoLog, id);
-      die("failed to compile %s shader:\n%s"
+      die("failed to compile %s shader:\n###\n%s###"
          , type == GL_VERTEX_SHADER ? "vertex" : "fragment", msg);
     }
   }
@@ -103,7 +103,6 @@ struct shaderprogram {
       glDetachShader(id, frag.id);
       die("failed to link shaders:\n%s", msg);
     }
-    use_this_prog();
   }
   ~shaderprogram() {
     glDeleteProgram(id);
@@ -122,6 +121,8 @@ struct shaderprogram {
     GLint attr = glGetAttribLocation(id, name);
     assertf(glGetError() == GL_NO_ERROR, "couldn't bind attribute %s", name);
     dont_use_this_prog();
+    if (attr == -1)
+      printf("warning: failed to bind attribute %s\n", name);
     return attr;
   }
   GLint bind_uniform(const char *name) {
@@ -129,6 +130,8 @@ struct shaderprogram {
     GLint unif = glGetUniformLocation(id, name);
     assertf(glGetError() == GL_NO_ERROR, "failed to bind uniform %s", name);
     dont_use_this_prog();
+    if (unif == -1)
+      printf("warning: failed to bind uniform %s\n", name);
     return unif;
   }
   void use_this_prog() {

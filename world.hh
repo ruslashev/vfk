@@ -7,9 +7,9 @@
 
 class world {
   std::vector<uint8_t> _data;
-  uint64_t to_index(uint32_t x, uint32_t y, uint32_t z) const;
   GLuint _texture;
-  GLint _data_attr, _w_attr, _h_attr, _d_attr;
+  GLint _data_unif, _w_unif, _h_unif, _d_unif;
+  uint64_t to_index(uint32_t x, uint32_t y, uint32_t z) const;
 public:
   uint32_t w, h, d;
   world(uint32_t w, uint32_t h, uint32_t d);

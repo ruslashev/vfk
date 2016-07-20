@@ -9,13 +9,10 @@ world::world(uint32_t w, uint32_t h, uint32_t d)
   : w(w), h(h), d(d), _data(std::vector<uint8_t>(w * h * d, 0)), _texture(0) {
   for (int z = 0; z < d; z++)
     for (int y = 0; y < h; y++)
-      for (int x = 0; x < w; x++)
-        if (y < h / 2)
-          _data[to_index(x, y, z)] = 1;
-        else if (y > h / 2)
-          _data[to_index(x, y, z)] = 0;
-        else
-          _data[to_index(x, y, z)] = rand() % 2;
+      for (int x = 0; x < w; x++) {
+        _data[to_index(x, y, z)] = 255 * (rand() % 2);
+        printf("wrote %d\n", _data[to_index(x, y, z)]);
+      }
 }
 
 world::~world() {
@@ -36,16 +33,18 @@ void world::update_texture(shaderprogram *sp) {
   glBindTexture(GL_TEXTURE_3D, _texture);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexImage3D(GL_TEXTURE_3D, 0, GL_R8UI, w, h, d, 0, GL_RED_INTEGER
-      , GL_UNSIGNED_INT, &_data[0]);
+  glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, w, h, d, 0, GL_RED, GL_UNSIGNED_BYTE
+      , &_data[0]);
 
-  _data_attr = sp->bind_attrib("data");
-  _w_attr = sp->bind_attrib("w");
-  _h_attr = sp->bind_attrib("h");
-  _d_attr = sp->bind_attrib("d");
-  glUniform1f(_data_attr, 0);
-  glUniform1i(_w_attr, w);
-  glUniform1i(_h_attr, h);
-  glUniform1i(_d_attr, d);
+  _data_unif = sp->bind_uniform("world_data");
+  _w_unif = sp->bind_uniform("w");
+  _h_unif = sp->bind_uniform("h");
+  _d_unif = sp->bind_uniform("d");
+  sp->use_this_prog();
+  glUniform1i(_data_unif, 0);
+  glUniform1i(_w_unif, 1);
+  glUniform1i(_h_unif, 1);
+  glUniform1i(_d_unif, 0);
+  sp->dont_use_this_prog();
 }
 

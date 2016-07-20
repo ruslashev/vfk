@@ -59,7 +59,7 @@ void screen::mainloop(void (*load_cb)(screen*)
       double fps = 1. / ((double)ticks_per_frame / 1000.)
         , fpsavg = (double)totalframes / ((double)SDL_GetTicks() / 1000.0);
       char title[256];
-      snprintf(title, 256, "vfk | %d ms/frame - %.2f frames/s - %.2f frames/s "
+      snprintf(title, 256, "vfk | %2d ms/frame - %7.2f frames/s - %7.2f frames/s "
           "avg", ticks_per_frame, fps, fpsavg);
       SDL_SetWindowTitle(_window, title);
     }

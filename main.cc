@@ -10,6 +10,8 @@ shaderprogram *sp;
 GLint vattr;
 array_buffer *screenverts;
 GLint resolution_unif, time_unif;
+shader *vs, *fs;
+world *w;
 
 void load(screen *s) {
   int vertex_texture_units;
@@ -18,7 +20,9 @@ void load(screen *s) {
       "unfortunately, your graphic has 0 texture units availiable and does not "
       "support\ntexure lookups in the vertex shader");
 
-  vertexarray vao;
+  // vertexarray vao;
+
+  glClearColor(0, 0, 0, 1);
 
   std::vector<float> vertices = {
     -1.0f,  1.0f,
@@ -40,32 +44,18 @@ void load(screen *s) {
   const char *fsrc = _glsl(
     uniform vec2 iResolution;
     uniform float iGlobalTime;
-    // /*
-    uniform vec3 viewOrigin;
-    uniform mat4 invProjView;
-    uniform sampler3D data;
+    // uniform vec3 viewOrigin;
+    // uniform mat4 invProjView;
+    uniform sampler3D world_data;
     uniform int w;
     uniform int h;
     uniform int d;
-    // */
 
     const bool USE_BRANCHLESS_DDA = false;
     const int MAX_RAY_STEPS = 64;
 
-    float sdSphere(vec3 p, float d) {
-      return length(p) - d;
-    }
-
-    float sdBox(vec3 p, vec3 b) {
-      vec3 d = abs(p) - b;
-      return min(max(d.x,max(d.y,d.z)),0.0) +
-      length(max(d,0.0));
-    }
-
     bool getVoxel(ivec3 c) {
-      vec3 p = vec3(c) + vec3(0.5);
-      float d = min(max(-sdSphere(p, 7.5), sdBox(p, vec3(6.0))), -sdSphere(p, 25.0));
-      return d < 0.0;
+      return texture3D(world_data, c).r == 255;
     }
 
     vec2 rotate2d(vec2 v, float a) {
@@ -74,8 +64,7 @@ void load(screen *s) {
       return vec2(v.x * cosA - v.y * sinA, v.y * cosA + v.x * sinA);
     }
 
-    void main()
-    {
+    void main() {
       vec2 screenPos = (gl_FragCoord.xy / iResolution.xy) * 2.0 - 1.0;
       vec3 cameraDir = vec3(0.0, 0.0, 0.8);
       vec3 cameraPlaneU = vec3(1.0, 0.0, 0.0);
@@ -92,7 +81,7 @@ void load(screen *s) {
 
       ivec3 rayStep = ivec3(sign(rayDir));
 
-      vec3 sideDist = (sign(rayDir) * (vec3(mapPos) - rayPos) + (sign(rayDir) * 0.5) + 0.5) * deltaDist;
+      vec3 sideDist = (sign(rayDir) * (vec3(mapPos) - rayPos) + sign(rayDir) * 0.5 + 0.5) * deltaDist;
 
       bvec3 mask;
 
@@ -145,8 +134,9 @@ void load(screen *s) {
     }
   );
 
-  shader vs(vsrc, GL_VERTEX_SHADER), fs(fsrc, GL_FRAGMENT_SHADER);
-  sp = new shaderprogram(vs, fs);
+  vs = new shader(vsrc, GL_VERTEX_SHADER);
+  fs = new shader(fsrc, GL_FRAGMENT_SHADER);
+  sp = new shaderprogram(*vs, *fs);
 
   vattr = sp->bind_attrib("position");
   resolution_unif = sp->bind_uniform("iResolution");
@@ -157,8 +147,8 @@ void load(screen *s) {
 
   time_unif = sp->bind_uniform("iGlobalTime");
 
-  world w(16, 16, 16);
-  w.update_texture(sp);
+  w = new world(64, 64, 64);
+  w->update_texture(sp);
 }
 
 void update(double dt, uint32_t t, screen *s) {
@@ -190,7 +180,6 @@ void update(double dt, uint32_t t, screen *s) {
 }
 
 void draw() {
-  glClearColor(0, 0, 0, 1);
   glClear(GL_COLOR_BUFFER_BIT);
 
   sp->use_this_prog();
@@ -203,8 +192,11 @@ void draw() {
 }
 
 void cleanup() {
+  delete vs;
+  delete fs;
   delete sp;
   delete screenverts;
+  delete w;
 }
 
 int main() {
