@@ -11,7 +11,7 @@ world::world(uint32_t w, uint32_t h, uint32_t d)
     for (int y = 0; y < h; y++)
       for (int x = 0; x < w; x++) {
         _data[to_index(x, y, z)] = 255 * (rand() % 2);
-        printf("wrote %d\n", _data[to_index(x, y, z)]);
+        // printf("wrote %d\n", _data[to_index(x, y, z)]);
       }
 }
 
@@ -33,6 +33,9 @@ void world::update_texture(shaderprogram *sp) {
   glBindTexture(GL_TEXTURE_3D, _texture);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
   glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, w, h, d, 0, GL_RED, GL_UNSIGNED_BYTE
       , &_data[0]);
 

@@ -22,7 +22,7 @@ void load(screen *s) {
 
   // vertexarray vao;
 
-  glClearColor(0, 0, 0, 1);
+  glClearColor(0.85f, 0.f, 1.f, 1);
 
   std::vector<float> vertices = {
     -1.0f,  1.0f,
@@ -52,10 +52,27 @@ void load(screen *s) {
     uniform int d;
 
     const bool USE_BRANCHLESS_DDA = false;
-    const int MAX_RAY_STEPS = 64;
+    const int MAX_RAY_STEPS = 128;
+
+    float noise(float x) { return fract(sin(x * 113.0) * 43758.5453123); }
+
+    float sdSphere(vec3 p, float d) {
+      return length(p) - d;
+    }
+
+    float sdBox(vec3 p, vec3 b) {
+      vec3 d = abs(p) - b;
+      return min(max(d.x,max(d.y,d.z)),0.0) +
+      length(max(d,0.0));
+    }
 
     bool getVoxel(ivec3 c) {
-      return texture3D(world_data, c).r == 255;
+      // return noise(c.x) > 0.5;
+      // return texture3D(world_data, c).r > 0.5;
+      vec3 s = vec3(c) + vec3(0.5);
+      // float d = min(max(-sdSphere(p, 7.5), sdBox(p, vec3(6.0))), -sdSphere(p, 25.0));
+      // return d < 0.0;
+      return distance(s, vec3(0.0)) > 30.0 ? texture3D(world_data, s).r == 1.0 : false;
     }
 
     vec2 rotate2d(vec2 v, float a) {

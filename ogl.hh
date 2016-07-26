@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <vector>
 #include <string>
+#include <cstring>
 
 class ogl_buffer {
 protected:
@@ -34,21 +35,13 @@ public:
   }
 };
 
-static const char*
-get_ogl_shader_err(void (*ogl_errmsg_func)(GLuint, GLsizei, GLsizei*, GLchar*),
-    GLuint id) {
-  char *msg;
-  GLint loglen;
-  glGetShaderiv(id, GL_INFO_LOG_LENGTH, &loglen);
-  if (loglen == 0) {
-    GLint type;
-    glGetShaderiv(id, GL_SHADER_TYPE, &type);
-    std::string errmsg = "shader has no error log";
-    errmsg.insert(0, type == GL_VERTEX_SHADER ? "vertex" : "fragment");
-    return errmsg.c_str();
-  }
-  msg = new char [loglen + 1];
+static std::string
+get_ogl_shader_err(GLint loglen
+    , void (*ogl_errmsg_func)(GLuint, GLsizei, GLsizei*, GLchar*)
+    , GLuint id) {
+  char msg[loglen + 1];
   ogl_errmsg_func(id, loglen, nullptr, msg);
+  msg[loglen] = 0;
   std::string msgstr(msg);
   msgstr.pop_back(); // strip trailing newline
   /*
@@ -61,8 +54,7 @@ get_ogl_shader_err(void (*ogl_errmsg_func)(GLuint, GLsizei, GLsizei*, GLchar*),
     msgstr.insert(i, indent, ' ');
   }
   */
-  delete [] msg;
-  return msgstr.c_str();
+  return msgstr;
 }
 
 struct shader {
@@ -73,12 +65,20 @@ struct shader {
     const char *csrc = source.c_str();
     glShaderSource(id, 1, &csrc, NULL);
     glCompileShader(id);
-    GLint compilesucc;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &compilesucc);
-    if (compilesucc != GL_TRUE) {
-      const char *msg = get_ogl_shader_err(glGetShaderInfoLog, id);
-      die("failed to compile %s shader:\n###\n%s###"
-         , type == GL_VERTEX_SHADER ? "vertex" : "fragment", msg);
+    GLint loglen;
+    glGetShaderiv(id, GL_INFO_LOG_LENGTH, &loglen);
+    if (loglen != 0) {
+      std::string msg = get_ogl_shader_err(loglen, glGetShaderInfoLog, id);
+      GLint compilesucc;
+      glGetShaderiv(id, GL_COMPILE_STATUS, &compilesucc);
+      if (compilesucc != GL_TRUE)
+        die("failed to compile %s shader:\n###\n%s###"
+            , type == GL_VERTEX_SHADER ? "vertex" : "fragment"
+            , msg.c_str());
+      else
+        printf("%s shader diagnostic message:\n###\n%s###\n"
+            , type == GL_VERTEX_SHADER ? "vertex" : "fragment"
+            , msg.c_str());
     }
   }
   ~shader() {
@@ -95,13 +95,20 @@ struct shaderprogram {
     glAttachShader(id, vert.id);
     glAttachShader(id, frag.id);
     glLinkProgram(id);
-    GLint linksucc;
-    glGetProgramiv(id, GL_LINK_STATUS, &linksucc);
-    if (linksucc != GL_TRUE) {
-      const char *msg = get_ogl_shader_err(glGetProgramInfoLog, id);
-      glDetachShader(id, vert.id);
-      glDetachShader(id, frag.id);
-      die("failed to link shaders:\n%s", msg);
+    GLint loglen;
+    glGetProgramiv(id, GL_INFO_LOG_LENGTH, &loglen);
+    if (loglen != 0) {
+      std::string msg = get_ogl_shader_err(loglen, glGetProgramInfoLog, id);
+      GLint linksucc;
+      glGetProgramiv(id, GL_LINK_STATUS, &linksucc);
+      if (linksucc != GL_TRUE) {
+        glDetachShader(id, vert.id);
+        glDetachShader(id, frag.id);
+        die("failed to link a program:\n%s"
+            , msg.c_str());
+      } else
+        printf("shader program diagnostic message:\n###\n%s###\n"
+            , msg.c_str());
     }
   }
   ~shaderprogram() {
@@ -130,7 +137,7 @@ struct shaderprogram {
     GLint unif = glGetUniformLocation(id, name);
     assertf(glGetError() == GL_NO_ERROR, "failed to bind uniform %s", name);
     dont_use_this_prog();
-    if (unif == -1)
+    if (0) // (unif == -1)
       printf("warning: failed to bind uniform %s\n", name);
     return unif;
   }
