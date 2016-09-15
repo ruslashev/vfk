@@ -10,7 +10,7 @@ class screen {
 public:
   int window_width, window_height;
   bool running;
-  screen(int window_width, int window_height);
+  screen(int n_window_width, int n_window_height);
   ~screen();
   void mainloop(void (*load_cb)(screen*)
       , void (*update_cb)(double, uint32_t, screen*)

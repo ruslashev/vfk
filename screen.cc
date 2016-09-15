@@ -1,8 +1,8 @@
 #include "screen.hh"
 #include "utils.hh"
 
-screen::screen(int window_width, int window_height)
-  : window_width(window_width), window_height(window_height) {
+screen::screen(int n_window_width, int n_window_height)
+  : window_width(n_window_width), window_height(n_window_height) {
   SDL_Init(SDL_INIT_EVERYTHING);
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);

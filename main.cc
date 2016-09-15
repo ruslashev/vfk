@@ -72,7 +72,7 @@ void load(screen *s) {
       vec3 s = vec3(c) + vec3(0.5);
       // float d = min(max(-sdSphere(p, 7.5), sdBox(p, vec3(6.0))), -sdSphere(p, 25.0));
       // return d < 0.0;
-      return distance(s, vec3(0.0)) > 30.0 ? texture3D(world_data, s).r == 1.0 : false;
+      return distance(s, vec3(0.0)) > 30.0 ? texture3D(world_data, s).r < 0.5 : false;
     }
 
     vec2 rotate2d(vec2 v, float a) {
@@ -148,6 +148,7 @@ void load(screen *s) {
         color = vec3(0.75);
       }
       gl_FragColor = vec4(color, 1.0);
+      // gl_FragColor = vec4(texture3D(data, vec3(0,0,0)).rgb, 1.0);
     }
   );
 

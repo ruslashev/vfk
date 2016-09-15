@@ -11,7 +11,7 @@ protected:
   GLuint _id;
   GLenum _type;
 public:
-  ogl_buffer(GLenum _type = GL_ARRAY_BUFFER) : _type(_type) {
+  ogl_buffer(GLenum n_type) : _type(n_type) {
     glGenBuffers(1, &_id);
   }
   ~ogl_buffer() {
@@ -27,10 +27,11 @@ public:
 
 class array_buffer : public ogl_buffer {
 public:
+  array_buffer() : ogl_buffer(GL_ARRAY_BUFFER) {}
   void upload(std::vector<GLfloat> &data) {
     bind();
-    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(data[0]), data.data(),
-        GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(data[0]), data.data()
+        , GL_STATIC_DRAW);
     unbind();
   }
 };
@@ -60,7 +61,7 @@ get_ogl_shader_err(GLint loglen
 struct shader {
   GLuint type;
   GLuint id;
-  shader(std::string source, GLuint type) : type(type) {
+  shader(std::string source, GLuint ntype) : type(ntype) {
     id = glCreateShader(type);
     const char *csrc = source.c_str();
     glShaderSource(id, 1, &csrc, NULL);

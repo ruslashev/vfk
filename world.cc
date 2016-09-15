@@ -5,11 +5,13 @@ uint64_t world::to_index(uint32_t x, uint32_t y, uint32_t z) const {
   return z * h * w + y * w + x;
 }
 
-world::world(uint32_t w, uint32_t h, uint32_t d)
-  : w(w), h(h), d(d), _data(std::vector<uint8_t>(w * h * d, 0)), _texture(0) {
-  for (int z = 0; z < d; z++)
-    for (int y = 0; y < h; y++)
-      for (int x = 0; x < w; x++) {
+world::world(uint32_t n_w, uint32_t n_h, uint32_t n_d)
+  : w(n_w), h(n_h), d(n_d)
+    , _data(std::vector<uint8_t>(w * h * d, 0))
+    , _texture(0) {
+  for (uint32_t z = 0; z < d; z++)
+    for (uint32_t y = 0; y < h; y++)
+      for (uint32_t x = 0; x < w; x++) {
         _data[to_index(x, y, z)] = 255 * (rand() % 2);
         // printf("wrote %d\n", _data[to_index(x, y, z)]);
       }
@@ -26,6 +28,8 @@ uint8_t world::get(uint32_t x, uint32_t y, uint32_t z) const {
 }
 
 void world::update_texture(shaderprogram *sp) {
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
   if (_texture > 0)
     glDeleteTextures(1, &_texture);
   glActiveTexture(GL_TEXTURE0);
@@ -36,6 +40,7 @@ void world::update_texture(shaderprogram *sp) {
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
+
   glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, w, h, d, 0, GL_RED, GL_UNSIGNED_BYTE
       , &_data[0]);
 
